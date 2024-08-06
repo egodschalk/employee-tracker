@@ -244,15 +244,15 @@ function removeEmployee() {
             {
                 type: "list",
                 message: "Which employee do you want to remove?",
-                name: "id",
+                name: "employeeId",
                 choices: data.rows
                 // list employees
             }
         ])
         .then(answer => {
-            pool.query(`DELETE FROM employee WHERE id = ${answer.id}`), (err, res) => {
+            pool.query(`DELETE FROM employee WHERE id = ${answer.employeeId}`, (err, res) => {
                 viewAllEmployees();
-            }
+            })
         })
     })
 }
