@@ -26,7 +26,7 @@ class OptionsMenu {
                 type: "list",
                 message: "What would you like to do?",
                 name: "options",
-                choices: ["View all departments", "View all roles", "View all employees", "Add a department", "Add a role", "Add an employee", "Update an employee role"],
+                choices: ["View all departments", "View all roles", "View all employees", "Add a department", "Add a role", "Add an employee", "Remove an employee", "Update an employee role", "Update an employee's manager", "Quit"],
             },
         ])
             .then(({ options }) => {
@@ -49,32 +49,22 @@ class OptionsMenu {
                     case "Add an employee":
                         addEmployee();
                         break;
-                    // case "Update an employee role":
-                    //     {
-                    //         type: "list",
-                    //         message: "Which employee's role do you want to update?",
-                    //         name: "options",
-                    //         choices: [],
-                    //         // list employees
-                    //     },
-                    //     {
-                    //         type: "list",
-                    //         message: "Which role do you want to assign the selected employee?",
-                    //         name: "options",
-                    //         choices: [],
-                    //         // list roles
-                    //     }
-                    //     break;
-
-                    // default:
-                    //     // default = quit
-                    //     \q
-                    //     break;
+                    case "Update an employee role":
+                        updateEmployeeRole();
+                        break;
+                    case "Remove an employee":
+                        removeEmployee();
+                        break;
+                    case "Update an employee's manager":
+                        updateEmployeeMgr();
+                        break;
+                    default:
+                        // default = quit
+                        console.log('Exiting the program...');
+                        process.exit(0);
+                        break;
                 }
-
-
             })
-
     }
 }
 
@@ -92,7 +82,7 @@ function viewAllDepartments() {
 }
 
 function viewAllRoles() {
-    pool.query(`SELECT * FROM role`, (err, res) => {
+    pool.query(`SELECT role.id AS id, role.title AS title, department.dept_name AS department, role.salary AS salary FROM role JOIN department ON role.dept_id = department.id`, (err, res) => {
         if (err) {
             console.log(err);
         } else {
@@ -103,7 +93,7 @@ function viewAllRoles() {
 }
 
 function viewAllEmployees() {
-    pool.query(`SELECT * FROM employee`, (err, res) => {
+    pool.query(`SELECT employee.id AS id, employee.first_name AS first_name, employee.last_name AS last_name, role.title AS title, role.salary AS salary, employee.manager_id AS manager FROM employee JOIN role ON employee.role_id = role.id`, (err, res) => {
         if (err) {
             console.log(err);
         } else {
@@ -128,7 +118,6 @@ function addDepartment() {
 
 function addRole() {
     pool.query("SELECT id AS value, dept_name AS name FROM department", (err, data) => {
-        console.log(data);
         inquirer.prompt([
             {
                 type: "input",
@@ -157,54 +146,118 @@ function addRole() {
 
 function addEmployee() {
     pool.query("SELECT id AS value, title AS name FROM role", (err, data) => {
-        console.log(data);
+        pool.query("SELECT id AS value, first_name || ' ' || last_name AS name FROM employee", (err, mgrData) => {
+            inquirer.prompt([
+                {
+                    type: "input",
+                    message: "What is the employee's first name?",
+                    name: "employeeFirstName"
+                },
+                {
+                    type: "input",
+                    message: "What is the employee's last name?",
+                    name: "employeeLastName"
+                },
+                {
+                    type: "list",
+                    message: "What is the employee's role?",
+                    name: "role_id",
+                    choices: data.rows,
+                },
+                {
+                    type: "list",
+                    message: "Who is the employee's manager?",
+                    name: "manager_id",
+                    choices: mgrData.rows,
+                    // list employees
+                }
+            ])
+                .then(answer => {
+                    console.log(answer);
+                    pool.query(`INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES ('${answer.employeeFirstName}', '${answer.employeeLastName}', ${answer.role_id}, ${answer.manager_id})`, (err, res) => {
+                        if (err) console.log(err);
+                        viewAllEmployees()
+                    })
+                })
+        })
+    })
+}
+
+function updateEmployeeRole() {
+    pool.query("SELECT id AS value, first_name || ' ' || last_name AS name FROM employee", (err, data) => {
+        pool.query("SELECT id AS value, title AS name FROM role", (err, roleData) => {
+            inquirer.prompt([
+                {
+                    type: "list",
+                    message: "Which employee's role do you want to update?",
+                    name: "id",
+                    choices: data.rows
+                    // list employees
+                },
+                {
+                    type: "list",
+                    message: "Which role do you want to assign the selected employee?",
+                    name: "role_id",
+                    choices: roleData.rows
+                    // list roles
+                }
+            ])
+                .then(answer => {
+                    pool.query(`UPDATE employee SET role_id=${answer.role_id} WHERE id = ${answer.id}`, (err, res) => {
+                        viewAllEmployees();
+                    })
+                })
+        })
+    })
+}
+
+function updateEmployeeMgr() {
+    pool.query("SELECT id AS value, first_name || ' ' || last_name AS name FROM employee", (err, data) => {
+            inquirer.prompt([
+                {
+                    type: "list",
+                    message: "Which employee's manager do you want to update?",
+                    name: "id",
+                    choices: data.rows
+                    // list employees
+                },
+                {
+                    type: "list",
+                    message: "Which manager do you want to assign to the selected employee?",
+                    name: "managerId",
+                    choices: data.rows
+                    // list employees
+                }
+            ])
+                .then(answer => {
+                    pool.query(`UPDATE employee SET manager_id=${answer.managerId} WHERE id = ${answer.id}`, (err, res) => {
+                        viewAllEmployees();
+                    })
+                })
+        })
+    }
+
+
+function removeEmployee() {
+    pool.query("SELECT id AS value, first_name || ' ' || last_name AS name FROM employee", (err, data) => {
         inquirer.prompt([
             {
-                type: "input",
-                message: "What is the employee's first name?",
-                name: "employeeFirstName"
-            },
-            {
-                type: "input",
-                message: "What is the employee's last name?",
-                name: "employeeLastName"
-            },
-            {
                 type: "list",
-                message: "What is the employee's role?",
-                name: "role_id",
-                choices: data.rows,
+                message: "Which employee do you want to remove?",
+                name: "id",
+                choices: data.rows
+                // list employees
             }
-            // {
-            //     type: "list",
-            //     message: "Who is the employee's manager?",
-            //     name: "options",
-            //     choices: [],
-            //     // list managers
-            // }
         ])
-            .then(answer => {
-                pool.query(`INSERT INTO employee (first_name, last_name, role_id) VALUES ('${answer.employeeFirstName}', '${answer.employeeLastName}', ${answer.role_id})`, (err, res) => {
-                    viewAllEmployees()
-                })
-            })
+        .then(answer => {
+            pool.query(`DELETE FROM employee WHERE id = ${answer.id}`), (err, res) => {
+                viewAllEmployees();
+            }
+        })
     })
-
-    // pool.query("SELECT id AS value, title AS name FROM role", (err, data) => {
-    //     console.log(data);
-    //     inquirer.prompt([
-    //         {
-    //             type: "list",
-    //             message: "Who is the employee's manager?",
-    //             name: "options",
-    //             choices: [],
-    //             // list employees
-    //         }
-    //     ])
-    //         .then(answer => {
-    //             pool.query(`INSERT INTO employee (first_name, last_name, role_id) VALUES ('${answer.employeeFirstName}', '${answer.employeeLastName}', ${answer.role_id})`, (err, res) => {
-    //                 viewAllEmployees()
-    //             })
-    //         })
-    // })
 }
+
+
+
+
+
